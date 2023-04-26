@@ -1,0 +1,92 @@
+
+```{r}
+library(tidyverse)
+library(mistyR)
+library(here)
+here::i_am("scripts/synthetic_R.Rmd")
+data("synthetic")
+```
+
+```{r}
+# writing the data to csv for access in python
+library(mistyR)
+library(tidyverse)
+data("synthetic")
+out_dir = here::here("data", "synthetic")
+dir.create(paste0(out_dir), showWarnings = FALSE)
+purrr::iwalk(synthetic, function(file, name) {
+  write_delim(x=file, file=here::here("data", "synthetic", paste0(name, ".tsv")), delim="\t")
+})
+```
+
+```{r}
+ggplot(synthetic[[1]], aes(x = col, y = row, color = type)) +
+  geom_point(shape = 15, size = 0.7) +
+  scale_color_manual(values = c("#e9eed3", "#dcc38d", "#c9e2ad", "#a6bab6")) +
+  coord_equal()
+```
+
+```{r}
+expr <- synthetic[[1]] %>% select(-c(row, col, type))
+misty.intra <- create_initial_view(expr)
+
+pos <- synthetic[[1]] %>% select(row, col)
+misty.views <- misty.intra %>% add_paraview(pos, l = 10)
+
+results.folder <- here::here("output", "misty_results_R")
+dir.create(results.folder, recursive = TRUE)
+
+misty.views %>% run_misty(results.folder=results.folder)
+
+misty.results <- collect_results(results.folder)
+```
+
+```{r}
+misty.results$improvements %>%
+  dplyr::filter(measure %in% c("intra.R2", "multi.R2")) %>%
+  tidyr::pivot_wider(names_from=measure, values_from=value) %>%
+  dplyr::mutate(gain.R2 = multi.R2 - intra.R2)
+```
+
+```{r}
+misty.results %>% plot_improvement_stats("intra.R2")
+```
+
+```{r}
+misty.results %>% plot_improvement_stats("multi.R2")
+```
+
+```{r}
+misty.results %>% plot_improvement_stats("gain.R2")
+```
+
+```{r}
+misty.results %>% plot_view_contributions()
+```
+
+```{r}
+misty.results %>% plot_interaction_heatmap(view = "intra", cutoff = 0)
+misty.results %>% plot_interaction_heatmap(view = "para.10", cutoff = 0)
+```
+
+```{r}
+misty.results$importances %>%
+  dplyr::filter(view=="intra") %>%
+  dplyr::mutate(Importance = ifelse(Importance<0, 0, Importance)) %>%
+  dplyr::group_by(Target) %>%
+  dplyr::mutate(Importance = Importance / sum(Importance, na.rm = TRUE)) %>%
+  ggplot() +
+  geom_tile(aes(x=Predictor, y=Target, fill=Importance)) +
+  scale_fill_viridis_c() +
+  coord_equal()
+
+misty.results$importances %>%
+  dplyr::filter(view=="para.10") %>%
+  dplyr::mutate(Importance = ifelse(Importance<0, 0, Importance)) %>%
+  dplyr::group_by(Target) %>%
+  dplyr::mutate(Importance = Importance / sum(Importance, na.rm = TRUE)) %>%
+  ggplot() +
+  geom_tile(aes(x=Predictor, y=Target, fill=Importance)) +
+  scale_fill_viridis_c() +
+  coord_equal()
+```

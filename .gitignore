@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+output/
+*.Rproj
+.vscode/
+__pycache__
+scripts/.DS_Store
